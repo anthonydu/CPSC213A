@@ -1,5 +1,5 @@
 .pos 0x100
-        ld      $m, r0          # r0 = &m
+math:   ld      $m, r0          # r0 = &m
         ld      (r0), r1        # r1 = m
         mov     r1, r2          # r2 = m
         inc     r2              # r2 += 1
