@@ -132,6 +132,9 @@ static void *coalesce(struct myheap *h, void *first_block_start) {
  */
 static int get_size_to_allocate(int user_size) {
   /* TO BE COMPLETED BY THE STUDENT. */
+  if (user_size == 0) {
+    return 24;
+  }
   if (user_size % HEADER_SIZE == 0) {
     return ((user_size / (int)HEADER_SIZE) + 2) * HEADER_SIZE;
   } else {
