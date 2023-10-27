@@ -101,13 +101,13 @@ break3: inc r1                  # r1 += 1
 
 # students sorted, find median (7)
 break2: ld $s, r0               # r0 = &s
+        ld (r0), r0             # r0 = s
         ld $n, r1               # r1 = &n
         ld (r1), r1             # r1 = n
         shr $1, r1              # r1 = n / 2
-        inc r1                  # r1 = n / 2 + 1
-        mov r1, r2              # r2 = n / 2 + 1
-        shl $4, r1              # r1 = (n / 2 + 1) * 16
-        shl $3, r2              # r2 = (n / 2 + 1) * 8
+        mov r1, r2              # r2 = n / 2
+        shl $1, r1              # r1 = (n / 2) * 2
+        shl $2, r2              # r2 = (n / 2) * 4
         add r2, r1              # r1 += r2
         ld (r0, r1, 4), r0      # r0 = median average sid
         ld $m, r1               # r1 = &m
@@ -132,35 +132,35 @@ n:      .long 5         # number of students
 m:      .long 0         # id of student with median average grade
 s:      .long s0        # pointer to a dynamic array of students
 
-s0:     .long 0         # sid
+s0:     .long 1000      # sid
         .long 80        # grade[0]
         .long 60        # grade[1]
         .long 78        # grade[2]
         .long 90        # grade[3]
         .long 0         # average  
 
-s1:     .long 1         # sid
+s1:     .long 1001      # sid
         .long 90        # grade[0]
         .long 56        # grade[1]
         .long 77        # grade[2]
         .long 89        # grade[3]
         .long 0         # average 
 
-s2:     .long 2         # sid
+s2:     .long 1002      # sid
         .long 45        # grade[0]
         .long 32        # grade[1]
         .long 77        # grade[2]
         .long 61        # grade[3]
         .long 0         # average 
 
-s3:     .long 3         # sid
+s3:     .long 1003      # sid
         .long 37        # grade[0]
         .long 26        # grade[1]
         .long 45        # grade[2]
         .long 33        # grade[3]
         .long 0         # average 
 
-s4:     .long 4         # sid
+s4:     .long 1004      # sid
         .long 58        # grade[0]
         .long 89        # grade[1]
         .long 97        # grade[2]
