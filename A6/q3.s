@@ -3,37 +3,36 @@
 # Compute all students' averages (1-2)
 
 # setup loop
-        ld $s, r0               # r0 = &s
-        ld (r0), r0             # r0 = s
-        ld $n, r1               # r1 = &n
-        ld (r1), r1             # r1 = n
-        not r1                  # r1 = ~n
-        inc r1                  # r1 = -n
-        # r1 is the looping condition
-        ld $4, r2               # r2 = 4
-        add r0, r2              # r2 = &grade
-        # pointer to each student's grades
+        # r0: loop1 counter
+        ld $n, r0               # r0 = &n
+        ld (r0), r0             # r0 = n
+        not r0                  # r0 = ~n
+        inc r0                  # r0 = -n
+        # r1: pointer to s
+        ld $s, r1               # r1 = &s
+        ld (r1), r1             # r1 = s
+        
 
 # looping condition
-loop1:  beq r1, break1          # if r1 == 0 break
+loop1:  beq r0, break1          # if r0 == 0 break
 
 # calculate average for one student
-        ld $0, r3               # r0 = sum = 0
-        ld 0(r2), r4            # r2 = grade[0]
-        add r4, r3              # r0 = sum += grade[0]
-        ld 4(r2), r4            # r2 = grade[1]
-        add r4, r3              # r0 = sum += grade[1]
-        ld 8(r2), r4            # r2 = grade[2]
-        add r4, r3              # r0 = sum += grade[2]
-        ld 12(r2), r4           # r2 = grade[3]
-        add r4, r3              # r0 = sum += grade[3]
-        shr $2, r3              # r0 = avg = sum / 4
-        st r3, 16(r2)           # average = avg
+        ld $0, r2               # r2 = sum = 0
+        ld 4(r1), r3            # r3 = grade[0]
+        add r3, r2              # sum += grade[0]
+        ld 8(r1), r3            # r3 = grade[1]
+        add r3, r2              # sum += grade[1]
+        ld 12(r1), r3           # r3 = grade[2]
+        add r3, r2              # sum += grade[2]
+        ld 16(r1), r3           # r3 = grade[3]
+        add r3, r2              # sum += grade[3]
+        shr $2, r2              # r2 = avg = sum / 4
+        st r2, 20(r1)           # average = avg
 
 # increment loop
-        ld $24, r3
-        add r3, r2              # r2 += 24
-        inc r1                  # r1 += 1
+        ld $24, r2
+        add r2, r1              # r1 += 24
+        inc r0                  # r0 += 1
         br loop1                # continue
 
 
@@ -47,57 +46,85 @@ loop1:  beq r1, break1          # if r1 == 0 break
 # Sorting the students (3-6)
 
 # setup loop
-break1: ld $s, r0               # r0 = &s
-        ld (r0), r0             # r0 = s
-        ld $n, r1               # r1 = &n
-        ld (r1), r1             # r1 = n
-        not r1                  # r1 = ~n
-        inc r1                  # r1 = -n
-        # r1 is the looping condition
+        # r0: loop2 counter
+break1: ld $n, r0               # r0 = &n
+        ld (r0), r0             # r0 = n
+        not r0                  # r0 = ~n
+        inc r0                  # r0 = -n
 
 # looping condition
-loop2:  beq r1, break2          # if r1 == 0 break
+loop2:  beq r0, break2          # if r0 == 0 break
 
 # inner loop setup
-        mov r0, r2              # r2 = &s1
         # a pointer to the first student
-        ld $24, r3              # r3 = 40
-        add r0, r3              # r2 = &s2
-        # a pointer to the second student
-        mov r1, r4              # r4 = r1
-        inc r4                  # r4 = r1 + 1
+        ld $s, r1               # r1 = &s
+        # a pointer to the next student
+        ld $24, r2
+        add r1, r2              # r2 = &s + 24
+        # loop3 counter
         # the inner loop runs one less time than the size of the unsorted loop
+        mov r0, r3              # r3 = r0
+        inc r3                  # r3 = r0 + 1
+        
 
 # inner looping condition
-loop3:  beq r4, break3          # if r3 == 0 break
+loop3:  beq r3, break3          # if r3 == 0 break
 
 # compare averages and maybe swap
-        ld 20(r2), r5           # r5 = avg1
-        not r5                  # r5 = ~avg1
-        inc r5                  # r5 = -avg1
-        ld 20(r3), r6           # r6 = avg2
-        add r6, r5              # r6 = avg2 - avg1
+        ld 20(r1), r4           # r4 = avg1
+        not r4                  # r4 = ~avg1
+        inc r4                  # r4 = -avg1
+        ld 20(r2), r5           # r5 = avg2
+        add r4, r5              # r4 = - avg1 + avg2 
         bgt r5, noswap          # if avg1 < avg2 noswap
-        ld 20(r2), r5           # r5 = avg1
-        st r5, 20(r3)           # avg2 = avg1
-        st r6, 20(r2)           # avg1 = avg2
-        ld (r2), r5             # r5 = sid1
-        ld (r3), r6             # r6 = sid2
-        st r5, (r3)             # sid2 = sid1
-        st r6, (r2)             # sid1 = sid2
+        # swap sid
+        ld (r1), r4             
+        ld (r2), r5             
+        st r4, (r2)             
+        st r5, (r1)             
+        # swap grade[0]
+        ld 4(r1), r4             
+        ld 4(r2), r5             
+        st r4, 4(r2)             
+        st r5, 4(r1)             
+        # swap grade[1]
+        ld 8(r1), r4             
+        ld 8(r2), r5             
+        st r4, 8(r2)             
+        st r5, 8(r1)             
+        # swap grade[2]
+        ld 12(r1), r4             
+        ld 12(r2), r5             
+        st r4, 12(r2)             
+        st r5, 12(r1)             
+        # swap grade[3]
+        ld 16(r1), r4             
+        ld 16(r2), r5             
+        st r4, 16(r2)             
+        st r5, 16(r1)    
+        # swap avg
+        ld 20(r1), r4
+        ld 20(r2), r5
+        st r4, 20(r2)
+        st r5, 20(r1)       
 
 # increment inner loop
-noswap: ld $24, r5
-        add r5, r2              # r2 += 24
-        add r5, r3              # r3 += 24
-        inc r4                  # r4 += 1
+noswap: ld $24, r4
+        add r4, r1              # r1 += 24
+        add r4, r2              # r2 += 24
+        inc r3                  # r4 += 1
         br loop3                # continue
 
-
-
-# increment loop
-break3: inc r1                  # r1 += 1
+# increment outer loop
+break3: inc r0                  # r0 += 1
         br loop2                # continue
+
+
+
+
+
+
+
 
 # students sorted, find median (7)
 break2: ld $s, r0               # r0 = &s
