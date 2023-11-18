@@ -1,13 +1,15 @@
 *
 
-!.gitignore
+!*/
 
-![!.]*/
+!Makefile
 
-!*.c
+!*.*
 
-!*.h
+*.o
 
-!*.java
+.vscode
 
-!*.s
+*.dSYM
+
+.DS_Store
