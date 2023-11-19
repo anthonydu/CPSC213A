@@ -9,12 +9,13 @@
 int is_int(char* str) {
   char* endptr;
   strtol(str, &endptr, 10);
-  return str[0] != 0 && endptr[0] == 0;
+  int result = str[0] != 0 && endptr[0] == 0;
+  endptr = NULL;
+  return result;
 }
 
 void to_int(int* out, char* str) {
-  char* endptr;
-  *out = strtol(str, &endptr, 10);
+  *out = strtol(str, NULL, 10);
 }
 
 int is_str(char* str) {
@@ -45,34 +46,30 @@ int main(int argc, char** argv) {
 
   struct list* int_strs = list_create();
   list_filter(is_int, int_strs, args);
+  struct list* strs = list_create();
+  list_filter(is_str, strs, args);
+  list_destroy(args);
+  args = NULL;
 
   struct list* ints = list_create();
   list_map1(to_int, ints, int_strs);
-
-  struct list* strs = list_create();
-  list_filter(is_str, strs, args);
+  list_destroy(int_strs);
+  int_strs = NULL;
 
   struct list* results = list_create();
   list_map2(trunc, results, ints, strs);
+  list_destroy(strs);
+  strs = NULL;
+
   list_foreach(print_vertical, results);
   list_foreach(print_horizontal, results);
-
-  int* max_num = malloc(sizeof(int*));
-  list_foldl(max, max_num, ints);
-  printf("\n%d\n", *max_num);
-
   list_foreach(free, results);
-  list_destroy(args);
-  list_destroy(int_strs);
-  list_destroy(ints);
-  list_destroy(strs);
   list_destroy(results);
-  free(max_num);
-
-  args = NULL;
-  int_strs = NULL;
-  ints = NULL;
-  strs = NULL;
   results = NULL;
-  max_num = NULL;
+
+  int max_num = NULL;
+  list_foldl(max, &max_num, ints);
+  printf("\n%d\n", max_num);
+  list_destroy(ints);
+  ints = NULL;
 }
