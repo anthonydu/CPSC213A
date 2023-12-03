@@ -29,6 +29,30 @@ queue_t queue_create() {
   return q;
 }
 
+void queue_dequeue(queue_t q,
+                   void** val,
+                   void** arg,
+                   void (**callback)(void*, void*)) {
+  spinlock_lock(&q->mutex);
+  if (q->front != NULL) {
+    *val = q->front->val;
+    if (arg) *arg = q->front->arg;
+    if (callback) *callback = q->front->callback;
+    struct queue_e* new_front = q->front->prev;
+    q->front->next = q->free;
+    q->free = q->front;
+    if (new_front != NULL)
+      new_front->next = NULL;
+    else
+      q->back = NULL;
+    q->front = new_front;
+  } else {
+    *val = NULL;
+    if (callback) *callback = NULL;
+  }
+  spinlock_unlock(&q->mutex);
+}
+
 void queue_destroy(queue_t q) {
   void* val;
   do {
@@ -62,37 +86,23 @@ void queue_enqueue(queue_t q,
   spinlock_unlock(&q->mutex);
 }
 
-void queue_dequeue(queue_t q,
-                   void** val,
-                   void** arg,
-                   void (**callback)(void*, void*)) {
-  spinlock_lock(&q->mutex);
-  if (q->front != NULL) {
-    *val = q->front->val;
-    if (arg) *arg = q->front->arg;
-    if (callback) *callback = q->front->callback;
-    struct queue_e* new_front = q->front->prev;
-    q->front->next = q->free;
-    q->free = q->front;
-    if (new_front != NULL)
-      new_front->next = NULL;
-    else
-      q->back = NULL;
-    q->front = new_front;
+int queue_isempty(queue_t q) {
+  if (q->front == NULL) {
+    return 1;
   } else {
-    *val = NULL;
-    if (callback) *callback = NULL;
+    return 0;
   }
-  spinlock_unlock(&q->mutex);
 }
 
 struct tpool {
   unsigned int max_threads;
   queue_t pending_tasks;
-  unsigned int num_pending;
+  unsigned int total_tasks;
+  unsigned int num_completed;
   uthread_t* worker_threads;
   uthread_mutex_t mutex;
-  uthread_cond_t cond;
+  uthread_cond_t queue_not_empty;
+  uthread_cond_t queue_possibly_empty;
 };
 
 /**
@@ -101,20 +111,30 @@ struct tpool {
  */
 void* worker_thread(void* pool_v) {
   tpool_t pool = pool_v;
+  unsigned int has_done_task = 0;
 
-  // TODO
   while (1) {
+    if (has_done_task) {
+      pool->num_completed++;
+    } else {
+      has_done_task = 1;
+    }
+
     uthread_mutex_lock(pool->mutex);
-    while (!pool->num_pending) uthread_cond_wait(pool->cond);
+
+    while (queue_isempty(pool->pending_tasks)) {
+      uthread_cond_signal(pool->queue_possibly_empty);
+      uthread_cond_wait(pool->queue_not_empty);
+    }
     void* val;
     void* arg;
-    void (*f)(tpool_t, void*);
+    void (*f)(void*, void*);
     queue_dequeue(pool->pending_tasks, &val, &arg, &f);
-    pool->num_pending--;
     uthread_mutex_unlock(pool->mutex);
     f(val, arg);
   }
-  return NULL;  // TODO: replace this placehold return value
+
+  return NULL;
 }
 
 /**
@@ -122,18 +142,19 @@ void* worker_thread(void* pool_v) {
  */
 tpool_t tpool_create(unsigned int max_threads) {
   tpool_t pool = malloc(sizeof(struct tpool));
-  uthread_mutex_t mutex = uthread_mutex_create();
-  uthread_cond_t cond = uthread_cond_create(mutex);
-  uthread_t* worker_threads = malloc(sizeof(uthread_t) * max_threads);
   pool->max_threads = max_threads;
   pool->pending_tasks = queue_create();
-  pool->num_pending = 0;
-  pool->worker_threads = worker_threads;
-  pool->mutex = mutex;
-  pool->cond = cond;
+  pool->total_tasks = 0;
+  pool->num_completed = 0;
+  pool->worker_threads = malloc(sizeof(uthread_t) * max_threads);
+  pool->mutex = uthread_mutex_create();
+  pool->queue_not_empty = uthread_cond_create(pool->mutex);
+  pool->queue_possibly_empty = uthread_cond_create(pool->mutex);
+
   for (int i = 0; i < max_threads; i++) {
-    worker_threads[i] = uthread_create(worker_thread, pool);
+    pool->worker_threads[i] = uthread_create(worker_thread, pool);
   }
+
   return pool;
 }
 
@@ -143,8 +164,8 @@ tpool_t tpool_create(unsigned int max_threads) {
 void tpool_schedule_task(tpool_t pool, void (*f)(tpool_t, void*), void* arg) {
   uthread_mutex_lock(pool->mutex);
   queue_enqueue(pool->pending_tasks, pool, arg, f);
-  pool->num_pending++;
-  uthread_cond_signal(pool->cond);
+  pool->total_tasks++;
+  uthread_cond_signal(pool->queue_not_empty);
   uthread_mutex_unlock(pool->mutex);
 }
 
@@ -154,6 +175,7 @@ void tpool_schedule_task(tpool_t pool, void (*f)(tpool_t, void*), void* arg) {
  */
 void tpool_join(tpool_t pool) {
   uthread_mutex_lock(pool->mutex);
-  while (pool->num_pending) uthread_cond_wait(pool->cond);
+  while (pool->total_tasks != pool->num_completed)
+    uthread_cond_wait(pool->queue_possibly_empty);
   uthread_mutex_unlock(pool->mutex);
 }
