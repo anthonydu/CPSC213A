@@ -131,16 +131,16 @@ void* agent(void* av) {
 int available_resources[5] = {0, 0, 0, 0, 0};
 
 struct Bridge {
-  int resource_monitored;
+  int resource_monitoring;
   struct Agent* agent;
   uthread_cond_t can_smoke[5];
 };
 
-struct Bridge* createBridge(int resource_monitored,
+struct Bridge* createBridge(int resource_monitoring,
                             struct Agent* agent,
                             uthread_cond_t can_smoke[5]) {
   struct Bridge* bridge = malloc(sizeof(struct Bridge));
-  bridge->resource_monitored = resource_monitored;
+  bridge->resource_monitoring = resource_monitoring;
   bridge->agent = agent;
   for (int i = 0; i < 5; i++) bridge->can_smoke[i] = can_smoke[i];
   return bridge;
@@ -161,15 +161,14 @@ int count_resources() {
 
 void* bridge(void* bv) {
   struct Bridge* b = bv;
-  char* name = resource_name[b->resource_monitored];
+  char* name = resource_name[b->resource_monitoring];
   uthread_mutex_lock(b->agent->mutex);
   while (1) {
-    VERBOSE_PRINT("bridge waiting for %s\n", name);
     num_active_threads++;
     uthread_cond_signal(b->agent->thread_ready);
-    uthread_cond_wait(cond(b->agent, b->resource_monitored));
-    num_active_threads--;
-    available_resources[b->resource_monitored] = 1;
+    VERBOSE_PRINT("bridge waiting for %s\n", name);
+    uthread_cond_wait(cond(b->agent, b->resource_monitoring));
+    available_resources[b->resource_monitoring] = 1;
 
     VERBOSE_PRINT(
         "bridge received %s, new total: %d\n", name, count_resources());
@@ -177,26 +176,15 @@ void* bridge(void* bv) {
     if (count_resources() != 2) continue;
     VERBOSE_PRINT("enough resources collected\n");
 
-    int resource_held = 0;
-    for (int i = 0; i < 5; i++) {
-      if (available_resources[i]) resource_held += i;
-    }
+    int resources_held = 0;
+    for (int i = 0; i < 5; i++)
+      if (available_resources[i]) resources_held += i;
 
-    if (resource_held == (MATCH | TOBACCO)) {
-      VERBOSE_PRINT("signaled %s to smoke\n", resource_name[PAPER]);
-      uthread_cond_signal(b->can_smoke[PAPER]);
-      VERBOSE_PRINT("cleared resource stash\n");
-    }
-    if (resource_held == (PAPER | TOBACCO)) {
-      VERBOSE_PRINT("signaled %s to smoke\n", resource_name[MATCH]);
-      uthread_cond_signal(b->can_smoke[MATCH]);
-      VERBOSE_PRINT("cleared resource stash\n");
-    }
-    if (resource_held == (MATCH | PAPER)) {
-      VERBOSE_PRINT("signaled %s to smoke\n", resource_name[TOBACCO]);
-      uthread_cond_signal(b->can_smoke[TOBACCO]);
-      VERBOSE_PRINT("cleared resource stash\n");
-    }
+    int smoker_to_signal = 0b111 - resources_held;
+    VERBOSE_PRINT("signaled %s to smoke\n", resource_name[smoker_to_signal]);
+    uthread_cond_signal(b->can_smoke[smoker_to_signal]);
+
+    VERBOSE_PRINT("cleared resource stash\n");
     for (int i = 0; i < 5; i++) available_resources[i] = 0;
   }
   uthread_mutex_lock(b->agent->mutex);
@@ -223,12 +211,11 @@ void* smoker(void* sv) {
   char* name = resource_name[s->resource_held];
   uthread_mutex_lock(s->agent->mutex);
   while (1) {
-    VERBOSE_PRINT("smoker %s waiting to smoke\n", name);
     num_active_threads++;
     uthread_cond_signal(s->agent->thread_ready);
+    VERBOSE_PRINT("%s smoker waiting to smoke\n\n", name);
     uthread_cond_wait(s->can_smoke);
-    num_active_threads--;
-    VERBOSE_PRINT("smoker %s smoked\n\n", name);
+    VERBOSE_PRINT("%s smoker smoked\n", name);
     smoke_count[s->resource_held]++;
     uthread_cond_signal(s->agent->smoke);
   }
