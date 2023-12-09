@@ -131,12 +131,12 @@ void* agent(void* av) {
 int available_resources[5] = {0, 0, 0, 0, 0};
 
 struct Bridge {
-  int resource_monitoring;
+  enum Resource resource_monitoring;
   struct Agent* agent;
   uthread_cond_t can_smoke[5];
 };
 
-struct Bridge* createBridge(int resource_monitoring,
+struct Bridge* createBridge(enum Resource resource_monitoring,
                             struct Agent* agent,
                             uthread_cond_t can_smoke[5]) {
   struct Bridge* bridge = malloc(sizeof(struct Bridge));
@@ -146,7 +146,7 @@ struct Bridge* createBridge(int resource_monitoring,
   return bridge;
 }
 
-uthread_cond_t cond(struct Agent* agent, int resource) {
+uthread_cond_t cond(struct Agent* agent, enum Resource resource) {
   if (resource == MATCH) return agent->match;
   if (resource == TOBACCO) return agent->tobacco;
   if (resource == PAPER) return agent->paper;
@@ -180,7 +180,7 @@ void* bridge(void* bv) {
     for (int i = 0; i < 5; i++)
       if (available_resources[i]) resources_held += i;
 
-    int smoker_to_signal = 0b111 - resources_held;
+    enum Resource smoker_to_signal = 0b111 - resources_held;
     VERBOSE_PRINT("signaled %s to smoke\n", resource_name[smoker_to_signal]);
     uthread_cond_signal(b->can_smoke[smoker_to_signal]);
 
@@ -191,12 +191,12 @@ void* bridge(void* bv) {
 }
 
 struct Smoker {
-  int resource_held;
+  enum Resource resource_held;
   struct Agent* agent;
   uthread_cond_t can_smoke;
 };
 
-struct Smoker* createSmoker(int resource_held,
+struct Smoker* createSmoker(enum Resource resource_held,
                             struct Agent* agent,
                             uthread_cond_t can_smoke) {
   struct Smoker* smoker = malloc(sizeof(struct Smoker));
